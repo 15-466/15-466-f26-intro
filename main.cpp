@@ -1,6 +1,9 @@
 //Mode.hpp declares the "Mode::current" static member variable, which is used to decide where event-handling, updating, and drawing events go:
 #include "Mode.hpp"
 
+//Intro animation:
+#include "GP26IntroMode.hpp"
+
 //The 'PlayMode' mode plays the game:
 #include "PlayMode.hpp"
 
@@ -46,6 +49,23 @@ int main(int argc, char **argv) {
 	try {
 #endif
 
+	bool do_benchmark = false;
+	bool do_mute = false;
+	bool do_loop = false;
+
+	for (int argi = 1; argi < argc; ++argi) {
+		std::string arg = argv[argi];
+		if (arg == "--benchmark") {
+			do_benchmark = true;
+		} else if (arg == "--mute") {
+			do_mute = true;
+		} else if (arg == "--loop-intro") {
+			do_loop = true;
+		} else {
+			std::cerr << "WARNING: ignoring argument '" << arg << "'." << std::endl;
+		}
+	}
+
 	//------------  initialization ------------
 
 	//Initialize SDL library:
@@ -67,11 +87,11 @@ int main(int argc, char **argv) {
 
 	//create window:
 	Mode::window = SDL_CreateWindow(
-		"gp26 game3: require sound", //TODO: remember to set a title for your game!
-		1280, 720, //TODO: modify window size if you'd like
+		"gp26 intro example",
+		1280, 720,
 		SDL_WINDOW_OPENGL
-		| SDL_WINDOW_RESIZABLE //uncomment to allow resizing
-		| SDL_WINDOW_HIGH_PIXEL_DENSITY //uncomment for full resolution on high-DPI screens
+		| SDL_WINDOW_RESIZABLE
+		| SDL_WINDOW_HIGH_PIXEL_DENSITY
 	);
 
 	//prevent exceedingly tiny windows when resizing:
@@ -111,11 +131,26 @@ int main(int argc, char **argv) {
 	//------------ init sound --------------
 	Sound::init();
 
+	if (do_mute) {
+		Sound::set_volume(0.0f, 0.0f);
+	}
+
 	//------------ load assets --------------
 	call_load_functions();
 
 	//------------ create game mode + make current --------------
-	Mode::set_current(std::make_shared< PlayMode >());
+	{
+		auto intro = std::make_shared< GP26IntroMode >( [](){
+			Mode::set_current(std::make_shared< PlayMode >());
+		} );
+		if (do_benchmark) {
+			intro->benchmark();
+		} else {
+			intro->loop_forever = do_loop;
+			Mode::set_current( intro );
+		}
+	}
+
 
 	//------------ main loop ------------
 
