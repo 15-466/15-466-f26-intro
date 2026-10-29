@@ -1,15 +1,16 @@
-# (TODO: your game's title)
+# GP26 Intro Mode
 
-Author: (TODO: your name)
+This is a splash screen for GP'26 games.
 
-Design: (TODO: In two sentences or fewer, describe what is new and interesting about your game.)
+To use it, just construct one and set it as the initial mode. Pass a function that creates your *real* initial mode as a parameter:
 
-Screen Shot:
+```cpp
+	//in main.cpp:
+	Mode::set_current(
+		std::make_shared< GP26IntroMode >( [](){
+			Mode::set_current(std::make_shared< PlayMode >());
+		} );
+	);
+```
 
-![Screen Shot](screenshot.png)
-
-How To Play:
-
-(TODO: describe the controls and (if needed) goals/strategy.)
-
-This game was built with [NEST](NEST.md).
+This intro was built with [NEST](NEST.md).
