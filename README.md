@@ -2,7 +2,9 @@
 
 This is a splash screen for GP'26 games.
 
-To use it, just construct one and set it as the initial mode. Pass a function that creates your *real* initial mode as a parameter:
+Mostly self-contained (and, otherwise, written against our standard base code).
+
+To use, copy `GP26IntroMode.*pp` into your project, add to your `Maekfile.js`, and set as the initial mode in `main.cpp`. Pass a function that creates your *real* initial mode as a parameter:
 
 ```cpp
 	//in main.cpp:
