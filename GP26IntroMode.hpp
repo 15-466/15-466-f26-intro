@@ -26,15 +26,21 @@ struct GP26IntroMode : Mode {
 	//run through the animation and print out frame timings:
 	void benchmark();
 
+	//shader and vertex buffer basically the same as GP22IntroMode:
 	struct {
 		GLuint program = -1U;
-		GLuint ORIGIN_FROM_CLIP_mat3 = -1U;
-		GLuint DIRECTION_FROM_CLIP_mat3 = -1U;
-		GLuint LIGHTING_float = -1U;
-		GLuint LIGHT_vec3 = -1U;
-	} trace;
+		GLuint CLIP_FROM_OBJECT_mat4 = -1U;
+	} color;
 
-	GLuint empty_vao = -1U;
+	GLuint vertex_buffer = -1U;
+	GLuint vertex_buffer_for_color_program = -1U; //vertex array object
+
+	struct Vertex {
+		Vertex(glm::vec2 const &Position_, glm::u8vec4 Color_) : Position(Position_), Color(Color_) { }
+		glm::vec2 Position;
+		glm::u8vec4 Color;
+	};
+
 
 	float time = 0.0f;
 
