@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <array>
+#include <random>
 
 //from GP22IntroMode:
 static void stroke(std::vector< GP26IntroMode::Vertex > *attribs_,
@@ -231,13 +232,15 @@ GP26IntroMode::GP26IntroMode(std::function< void() > const &on_finished_) : on_f
 			.r = 0.0f,
 		};
 
-		tone(0.0f, 1.0f, midi2hz(Cs(1)), 0.2f, square, envR);
+		tone(0.0f, 1.5f, midi2hz(Cs(1)), 0.2f, square, envR);
 
-		tone(0.5f, 5.0f, midi2hz(F(0)), 1.0f, bell, env0);
-		tone(0.5f, 5.0f, midi2hz(Gs(3)), 1.0f, bell, env0);
+		const float ofs = 0.7f;
+
+		tone(ofs + 0.0f, 5.0f, midi2hz(F(0)), 1.0f, bell, env0);
+		tone(ofs + 0.0f, 5.0f, midi2hz(Gs(3)), 1.0f, bell, env0);
 		//tone(0.0f, 5.0f, midi2hz(Gs(6)), 0.5f, bell, env0);
 
-		tone(0.75f, 3.0f, midi2hz(Gs(4)), 0.5f, supersaw, env1);
+		tone(ofs + 0.25f, 3.0f, midi2hz(Gs(4)), 0.5f, supersaw, env1);
 
 		tone(2.5f, 3.5f, midi2hz(Cs(4)), 0.5f, supersaw, env2);
 
@@ -375,6 +378,253 @@ GP26IntroMode::GP26IntroMode(std::function< void() > const &on_finished_) : on_f
 
 	GL_ERRORS();
 
+	// ------ logo ------
+	{ //quick-n-hack-y svg path interpreter from GP22 intro; updated with some more features:
+		std::vector< std::vector< glm::vec2 > > paths;
+		glm::vec2 last = glm::vec2(0.0f, 0.0f);
+
+		[[maybe_unused]] auto svg_L = [&paths,&last](std::vector< float > const &coords) {
+			assert(!coords.empty() && coords.size() % 2 == 0);
+			assert(!paths.empty());
+			auto &path = paths.back();
+			for (uint32_t i = 0; i + 1 < coords.size(); i += 2) {
+				path.emplace_back(coords[i], coords[i+1]);
+			}
+			assert(!path.empty());
+			last = path.back();
+		};
+		[[maybe_unused]] auto svg_M = [&paths,&last](std::vector< float > const &coords) {
+			assert(!coords.empty() && coords.size() % 2 == 0);
+			paths.emplace_back();
+			auto &path = paths.back();
+			path.emplace_back(coords[0], coords[1]);
+			for (uint32_t i = 2; i + 1 < coords.size(); i += 2) {
+				path.emplace_back(coords[i], coords[i+1]);
+			}
+			assert(!path.empty());
+			last = path.back();
+		};
+		[[maybe_unused]] auto svg_m = [&svg_M,&last](std::vector< float > coords) {
+			assert(coords.size() >= 2);
+			coords[0] += last.x;
+			coords[1] += last.y;
+			for (uint32_t i = 2; i < coords.size(); ++i) {
+				coords[i] += coords[i-2];
+			}
+			svg_M(coords);
+		};
+		[[maybe_unused]] auto svg_l = [&svg_L,&last](std::vector< float > coords) {
+			assert(coords.size() >= 2);
+			coords[0] += last.x;
+			coords[1] += last.y;
+			for (uint32_t i = 2; i < coords.size(); ++i) {
+				coords[i] += coords[i-2];
+			}
+			svg_L(coords);
+		};
+
+		[[maybe_unused]] auto svg_H = [&paths,&last](std::vector< float > const &coords) {
+			assert(!coords.empty());
+			assert(!paths.empty());
+			auto &path = paths.back();
+			assert(!path.empty());
+			for (uint32_t i = 0; i < coords.size(); i += 1) {
+				path.emplace_back(coords[i], path.back().y);
+			}
+			last = path.back();
+		};
+		[[maybe_unused]] auto svg_V = [&paths,&last](std::vector< float > const &coords) {
+			assert(!coords.empty());
+			assert(!paths.empty());
+			auto &path = paths.back();
+			assert(!path.empty());
+			for (uint32_t i = 0; i < coords.size(); i += 1) {
+				path.emplace_back(path.back().x, coords[i]);
+			}
+			last = path.back();
+		};
+		[[maybe_unused]] auto svg_h = [&svg_H,&last](std::vector< float > coords) {
+			assert(!coords.empty());
+			coords[0] += last.x;
+			for (uint32_t i = 1; i < coords.size(); ++i) {
+				coords[i] += coords[i-1];
+			}
+			svg_H(coords);
+		};
+		[[maybe_unused]] auto svg_v = [&svg_V,&last](std::vector< float > coords) {
+			assert(!coords.empty());
+			coords[0] += last.y;
+			for (uint32_t i = 1; i < coords.size(); ++i) {
+				coords[i] += coords[i-1];
+			}
+			svg_V(coords);
+		};
+
+
+		[[maybe_unused]] auto svg_C = [&paths,&last](std::vector< float > const &coords) {
+			assert(coords.size() >= 6 && (coords.size() % 6 == 0));
+			assert(!paths.empty() && !paths.back().empty());
+			auto &path = paths.back();
+			for (uint32_t i = 0; i + 5 < coords.size(); i += 6) {
+				glm::vec2 p0 = path.back();
+				glm::vec2 p1 = glm::vec2(coords[i+0], coords[i+1]);
+				glm::vec2 p2 = glm::vec2(coords[i+2], coords[i+3]);
+				glm::vec2 p3 = glm::vec2(coords[i+4], coords[i+5]);
+
+				for (uint32_t ti = 0; ti < 30; ++ti) {
+					float t = (ti + 1.0f) / 30.0f;
+					glm::vec2 p01 = glm::mix(p0, p1, t);
+					glm::vec2 p12 = glm::mix(p1, p2, t);
+					glm::vec2 p23 = glm::mix(p2, p3, t);
+					glm::vec2 p012 = glm::mix(p01, p12, t);
+					glm::vec2 p123 = glm::mix(p12, p23, t);
+					glm::vec2 p = glm::mix(p012, p123, t);
+					path.emplace_back(p);
+				}
+			}
+			assert(!path.empty());
+			last = path.back();
+		};
+		[[maybe_unused]] auto svg_c = [&svg_C,&last](std::vector< float > coords) {
+			assert(coords.size() >= 6 && (coords.size() % 6 == 0));
+			coords[0] += last.x;
+			coords[1] += last.y;
+			coords[2] += last.x;
+			coords[3] += last.y;
+			coords[4] += last.x;
+			coords[5] += last.y;
+			for (uint32_t i = 6; i + 5 < coords.size(); i += 6) {
+				coords[i+0] += coords[i-2];
+				coords[i+1] += coords[i-1];
+				coords[i+2] += coords[i-2];
+				coords[i+3] += coords[i-1];
+				coords[i+4] += coords[i-2];
+				coords[i+5] += coords[i-1];
+			}
+			svg_C(coords);
+		};
+
+		//the letters:
+
+		//G:
+		svg_M({50.15979,55});
+		svg_h({15});
+		svg_v({20});
+		svg_h({-25});
+		svg_c({-10,0,-15,-5,-15,-15});
+		svg_V({20});
+		svg_c({0,-10,5,-15,15,-15});
+		svg_l({30,0});
+		svg_c({10,0,15,5,15,15});
+		svg_v({10});
+
+		//M:
+		svg_M({105.53391,45});
+		svg_h({35});
+		svg_c({10,0,15,-5,15,-15});
+		svg_V({20});
+		svg_c({0,-10,-5,-15,-15,-15});
+		svg_h({-35});
+		svg_v({40,35});
+
+		//2 (top part):
+		svg_M({170.10525,15});
+		svg_h({30});
+		svg_c({17.05638,0.150086,25,8.11247,25,25,0,11.62594,-9.38639,17.613383,-10.70379,18.668836});
+		svg_L({183.1705,83.830844});
+
+		//(bottom part):
+		svg_M({180.10525,85});
+		svg_h({50});
+
+		//6:
+		svg_M({270.47937,15});
+		svg_h({-25});
+		svg_v({20,50});
+		svg_h({25});
+		svg_c({10,0,15,-5,15,-15});
+		svg_V({50});
+		svg_c({0,-10,-5,-15,-15,-15});
+		svg_h({-25});
+
+		//lines:
+
+		svg_M({0,95});
+		svg_h({159.94547});
+		svg_v({10});
+		svg_H({310});
+
+		svg_M({20,115});
+		svg_h({119.94547});
+		svg_v({10});
+		svg_H({290});
+
+		svg_M({40,135});
+		svg_h({79.94546});
+		svg_v({10});
+		svg_H({270});
+
+		svg_M({60,155});
+		svg_h({40});
+		svg_v({10});
+		svg_h({150});
+
+		svg_M({80,175});
+		svg_v({10});
+		svg_h({150});
+
+
+		assert(!paths.empty());
+		{ //offset and scale:
+			glm::vec2 offset = glm::vec2(-155.0f,-95.0f);
+			float scale = 1.0f;
+			for (auto &path : paths) {
+				for (auto &v : path) {
+					v = scale * (v + offset);
+					v.y = -v.y;
+				}
+			}
+		}
+		/*
+
+		std::reverse(paths[2].begin(), paths[2].end());
+
+		{ //last two letters get rotated copies:
+			auto rc = [&](uint32_t si) {
+				paths.emplace_back(paths.at(si));
+				for (auto &v : paths.back()) {
+					v = -v;
+				}
+			};
+			rc(2);
+			rc(3);
+		}
+		*/
+
+		//assert(paths.size() == 6);
+
+		letters = paths;
+		positions = letters;
+		velocities = letters;
+
+		std::mt19937 mt(0x12341234);
+		for (auto &p : positions) {
+			for (auto &pt : p) {
+				pt.x = (mt() / float(mt.max()) - 0.5f);
+				pt.y = (mt() / float(mt.max()) - 0.5f);
+			}
+		}
+		for (auto &v : velocities) {
+			for (auto &vl : v) {
+				vl.x = (mt() / float(mt.max()) - 0.5f);
+				vl.y = (mt() / float(mt.max()) - 0.5f);
+				vl *= 1000.0f;
+			}
+		}
+
+	}
+
+
 }
 
 GP26IntroMode::~GP26IntroMode() {
@@ -427,6 +677,34 @@ bool GP26IntroMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_
 }
 
 void GP26IntroMode::update(float elapsed) {
+
+	float amt = std::clamp(1.0f - (time - 0.2f) / 0.8f, 0.0f, 1.0f);
+	amt = std::pow(amt, 2.0f);
+	circle_r = amt * 0.5f * glm::length(screen_max - screen_min);
+
+	{ //"physics"-ish behavior
+		for (size_t pts = 0; pts < positions.size(); ++pts) {
+			std::vector< glm::vec2 > &p = positions[pts];
+			std::vector< glm::vec2 > &v = velocities[pts];
+			std::vector< glm::vec2 > const &t = letters[pts];
+			assert(p.size() == t.size());
+			assert(v.size() == p.size());
+			for (size_t i = 0; i < p.size(); ++i) {
+				v[i] *= std::exp2(-elapsed / 0.2f);
+				v[i] += 200.0f * (t[i] - p[i]) * elapsed;
+				p[i] += v[i] * elapsed;
+
+				if (circle_r > 10.0f) {
+					float len = glm::length(p[i]);
+					if (len > circle_r) {
+						v[i] = glm::vec2(0.0f); //TODO
+						p[i] *= circle_r / len;
+					}
+				}
+			}
+		}
+	}
+
 	time += elapsed;
 	if (time > 10.0f) {
 		finish();
@@ -437,15 +715,11 @@ void GP26IntroMode::update(float elapsed) {
 void GP26IntroMode::draw(glm::uvec2 const &drawable_size) {
 	//based on GP22IntroMode's draw
 
-	constexpr glm::u8vec4 Bg1 = glm::u8vec4(0xff, 0xff, 0x00, 0xff);
-	constexpr glm::u8vec4 Bg2 = glm::u8vec4(0xff, 0x88, 0x00, 0xff);
+	//"safe" box: 486 x 324 (3:2)
 
 	//requested visible bounds:
-	glm::vec2 scene_min = glm::vec2(-5.0f, -5.0f);
-	glm::vec2 scene_max = glm::vec2( 5.0f,  5.0f);
-
-	//computed visible bounds:
-	glm::vec2 screen_min, screen_max;
+	glm::vec2 scene_min = glm::vec2(-243.0f, -162.0f);
+	glm::vec2 scene_max = glm::vec2( 243.0f,  162.0f);
 
 	//compute matrix for vertex shader:
 	glm::mat4 clip_from_object;
@@ -471,45 +745,189 @@ void GP26IntroMode::draw(glm::uvec2 const &drawable_size) {
 	std::vector< Vertex > attribs;
 	
 	size_t bg_start = attribs.size();
-	//--- striped background ---
+	//--- gradient background ---
 	{
-		float angle = 52.0f / 180.0f * float(M_PI);
-		glm::vec2 dir = glm::vec2(std::cos(angle), std::sin(angle));
-		glm::vec2 perp = glm::vec2(-dir.y, dir.x);
+		glm::vec2 grad_start = glm::vec2(0.0f, 0.0f);
+		glm::vec2 grad_end = glm::vec2(0.0f, 100.0f);
+		[[maybe_unused]] uint32_t c0 = 0xff00ff;
+		[[maybe_unused]] uint32_t c1 = 0xff00ff;
 
-		float ofs = time * -0.7f;
+		//split pts so that eqn.xy * pt + eqn.z >= 0.0f goes in 'pos', others go in 'neg':
+		// degenerate polygons just dropped
+		auto split = [](std::vector< glm::vec2 > const &pts, glm::vec3 eqn,
+			std::vector< glm::vec2 > *neg, std::vector< glm::vec2 > *pos) {
+			if (pts.size() < 3) return;
 
-		float w = 0.7f;
+			glm::vec2 prev = pts.back();
+			float prev_val = glm::dot(prev, glm::vec2(eqn)) + eqn.z;
 
-		auto [perp_min, perp_max] = std::minmax({
-			glm::dot(perp, glm::vec2(screen_min.x, screen_min.y)),
-			glm::dot(perp, glm::vec2(screen_max.x, screen_min.y)),
-			glm::dot(perp, glm::vec2(screen_min.x, screen_max.y)),
-			glm::dot(perp, glm::vec2(screen_max.x, screen_max.y))
-		});
+			for (glm::vec2 const &next : pts) {
+				float next_val = glm::dot(next, glm::vec2(eqn)) + eqn.z;
+				if ((prev_val >= 0.0f) != (next_val >= 0.0f)) {
+					glm::vec2 mid = glm::mix(prev, next, (0.0f - prev_val) / (next_val - prev_val));
+					if (neg) neg->emplace_back(mid);
+					if (pos) pos->emplace_back(mid);
+				}
+				if (next_val >= 0.0f) {
+					if (pos) pos->emplace_back(next);
+				} else {
+					if (neg) neg->emplace_back(next);
+				}
+				prev = next;
+				prev_val = next_val;
+			}
+		};
+		auto grad_poly = [&](std::vector< glm::vec2 > const &pts) {
+			if (pts.size() < 3) return;
 
-		auto [dir_min, dir_max] = std::minmax({
-			glm::dot(dir, glm::vec2(screen_min.x, screen_min.y)),
-			glm::dot(dir, glm::vec2(screen_max.x, screen_min.y)),
-			glm::dot(dir, glm::vec2(screen_min.x, screen_max.y)),
-			glm::dot(dir, glm::vec2(screen_max.x, screen_max.y))
-		});
+			glm::vec2 grad_along = grad_end - grad_start;
+			std::vector< glm::vec2 > const0, temp, med, const1;
+			split(pts, glm::vec3(grad_along, glm::dot(grad_along,-grad_start)), &const0, &temp);
+			split(temp, glm::vec3(grad_along, glm::dot(grad_along,-grad_end)), &med, &const1);
 
-		for (int32_t s = int32_t(std::floor(perp_min / w - ofs)); s <= int32_t(std::floor(perp_max / w - ofs)); ++s) {
+			glm::vec3 amt_eqn = glm::vec3(grad_along, glm::dot(grad_along, -grad_start));
+			amt_eqn /= glm::dot(amt_eqn, glm::vec3(grad_end, 1.0f));
+
+			// https://entropymine.com/imageworsener/srgbformula/
+			auto srgb2linear = [](float v255) {
+				float v = v255 / 255.0f;
+				if (v <= 0.04045f) v /= 12.92f;
+				else v = std::pow((v + 0.055f) / 1.055f, 2.4f);
+				return v * 255.0f;
+			};
+
+			glm::vec4 color0( srgb2linear((c0 >> 24) & 0xff), srgb2linear((c0 >> 16) & 0xff), srgb2linear((c0 >> 8) & 0xff), c0 & 0xff );
+			glm::vec4 color1( srgb2linear((c1 >> 24) & 0xff), srgb2linear((c1 >> 16) & 0xff), srgb2linear((c1 >> 8) & 0xff), c1 & 0xff );
+
+			auto color = [&](glm::vec2 const &pt) {
+				float amt = glm::dot(amt_eqn, glm::vec3(pt, 1.0f));
+				glm::vec4 c = glm::mix(color0, color1, std::clamp(amt, 0.0f, 1.0f));
+				return glm::u8vec4(uint8_t(c.r), uint8_t(c.g), uint8_t(c.b), uint8_t(c.a));
+			};
+
+			auto poly = [&](std::vector< glm::vec2 > const &pts) {
+				if (!attribs.empty()) attribs.emplace_back(attribs.back());
+				for (size_t i = 0; 2 * i + 1 < pts.size(); i += 1) {
+					attribs.emplace_back(pts[i], color(pts[i]));
+					if (i == 0 && attribs.size() > 1) attribs.emplace_back(attribs.back());
+					attribs.emplace_back(pts[pts.size()-1-i], color(pts[pts.size()-1-i]));
+				}
+				if (pts.size() % 2 != 0) {
+					attribs.emplace_back(pts[pts.size()/2], color(pts[pts.size()/2]));
+					attribs.emplace_back(attribs.back());
+				}
+			};
+
+			poly(const0);
+			poly(med);
+			poly(const1);
+		};
+
+		auto vibe = [](float t) {
+			return glm::vec2(
+				0.1f * std::cos(t / 0.3f * 2.0f * float(M_PI)) + 0.5f * std::cos(2.0f + t / 2.0f * 2.0f * float(M_PI)),
+				0.1f * std::sin(t / 0.3f * 2.0f * float(M_PI)) + 0.5f * std::sin(2.0f + t / 2.0f * 2.0f * float(M_PI))
+			);
+		};
+
+		{ //blue layer
+			grad_start = glm::vec2(181.0f,-64.0f);
+			grad_end = glm::vec2(grad_start.x - 20.0f, screen_max.y);
+			c0 = 0xe4f2f1ff;
+			c1 = 0xa1fff8ff;
+
+			grad_poly({
+				glm::vec2(screen_min.x, screen_min.y),
+				glm::vec2(screen_max.x, screen_min.y),
+				glm::vec2(screen_max.x, screen_max.y),
+				glm::vec2(screen_min.x, screen_max.y),
+			});
+		}
+		{ //red layer
+			glm::vec2 pt = glm::vec2(181.0f,-64.0f) + vibe(time + 2.0f);
+			glm::vec2 dir = glm::vec2(75.0f, 141.0f);
+
+			grad_start = pt;
+			grad_end = glm::normalize(glm::vec2(dir.y, -dir.x)) * 76.0f + grad_start;
+			c0 = 0xec9898ff;
+			c1 = 0xe67a7aff;
+
+			glm::vec2 pt0 = pt + dir * 1.01f * ( (screen_min.y - pt.y) / dir.y );
+			glm::vec2 pt1 = pt + dir * 1.01f * ( (screen_max.x - pt.x) / dir.x );
+
+			grad_poly({
+				pt0,
+				glm::vec2(screen_max.x, screen_min.y),
+				pt1,
+			});
+		}
+
+		{ //brown layer
+			glm::vec2 pt = glm::vec2(90.0f,-77.0f) + vibe(time);
+			glm::vec2 dir = glm::vec2(134.0f, 21.0f);
+
+			grad_start = pt;
+			grad_end = pt + glm::vec2(66.0f,-158.0f);
+			c0 = 0xffdda6ff;
+			c1 = 0xab6a00ff;
+
+			glm::vec2 pt0 = pt + dir * 1.01f * ( (screen_min.x - pt.x) / dir.x );
+			glm::vec2 pt1 = pt + dir * 1.01f * ( (screen_max.x - pt.x) / dir.x );
+
+			grad_poly({
+				pt0,
+				glm::vec2(screen_min.x, screen_min.y),
+				glm::vec2(screen_max.x, screen_min.y),
+				pt1,
+			});
+		}
+
+		if (circle_r > 0.0f) { //circle
+			
+			const glm::vec2 c = 0.5f * (screen_max + screen_min);
+			constexpr size_t steps = 32;
+
 			if (!attribs.empty()) attribs.emplace_back(attribs.back());
-			attribs.emplace_back(perp * ((ofs + s) * w) + dir * dir_min, Bg1);
-			if (attribs.size() != 1) attribs.emplace_back(attribs.back());
-			attribs.emplace_back(perp * ((ofs + s + 0.5f) * w) + dir * dir_min, Bg1);
-			attribs.emplace_back(perp * ((ofs + s) * w) + dir * dir_max, Bg1);
-			attribs.emplace_back(perp * ((ofs + s + 0.5f) * w) + dir * dir_max, Bg1);
+			for (size_t i = 0; i < steps; ++i) {
+				float a = (i + 0.5f) / float(steps) * float(M_PI);
+				float x = c.x + circle_r * std::cos(a);
+				float y = c.y + circle_r * std::sin(a);
+
+				attribs.emplace_back(glm::vec2(x,y), glm::u8vec4(0x00, 0x00, 0x00, 0xff));
+				if (i == 0 && attribs.size() > 1) attribs.emplace_back(attribs.back());
+				attribs.emplace_back(glm::vec2(x,-y), glm::u8vec4(0x00, 0x00, 0x00, 0xff));
+			}
 		}
 	}
 
-	stroke(&attribs,
-		std::vector< glm::vec2 >{ glm::vec2(-5.0f, -5.0f), glm::vec2( 5.0f, 5.0f) },
-		std::vector< float >{ 0.0f, 1.0f }, 0.5f,
-		glm::u8vec4(0xff, 0xff, 0xff, 0xff), std::vector< std::pair< float, glm::u8vec4 > >{}, glm::u8vec4(0x00, 0x00, 0x00, 0xff)
-	);
+	/* show target, for debug
+	for (std::vector< glm::vec2 > const &path : letters) {
+		std::vector< float > param;
+		param.reserve(path.size());
+		for (size_t i = 0; i < path.size(); ++i) {
+			param.emplace_back( float(i) / float(path.size()) );
+		}
+		stroke(&attribs,
+			path, param,
+			5.0f,
+			glm::u8vec4(0xff, 0xff, 0xff, 0xff), std::vector< std::pair< float, glm::u8vec4 > >{}, glm::u8vec4(0x00, 0x00, 0x00, 0xff)
+		);
+	}
+	*/
+
+	for (std::vector< glm::vec2 > const &path : positions) {
+		std::vector< float > param;
+		param.reserve(path.size());
+		for (size_t i = 0; i < path.size(); ++i) {
+			param.emplace_back( float(i) / float(path.size()) );
+		}
+		stroke(&attribs,
+			path, param,
+			5.0f,
+			glm::u8vec4(0x00, 0x00, 0x00, 0xff), std::vector< std::pair< float, glm::u8vec4 > >{}, glm::u8vec4(0x00, 0x00, 0x00, 0xff)
+		);
+	}
+
 
 	size_t bg_end = attribs.size();
 
@@ -522,7 +940,7 @@ void GP26IntroMode::draw(glm::uvec2 const &drawable_size) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	//Clear background:
-	glClearColor(Bg2.r / 255.0f, Bg2.g / 255.0f, Bg2.b / 255.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	//No depth test, please, but yes let's use alpha blending:

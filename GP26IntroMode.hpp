@@ -41,6 +41,15 @@ struct GP26IntroMode : Mode {
 		glm::u8vec4 Color;
 	};
 
+	std::vector< std::vector< glm::vec2 > > letters;
+	std::vector< std::vector< glm::vec2 > > positions;
+	std::vector< std::vector< glm::vec2 > > velocities;
+
+	//computed in draw():
+	glm::vec2 screen_min = glm::vec2(-1000.0f,-1000.0f);
+	glm::vec2 screen_max = glm::vec2( 1000.0f, 1000.0f);
+
+	float circle_r = 0.0f;
 
 	float time = 0.0f;
 

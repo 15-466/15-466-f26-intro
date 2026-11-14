@@ -15,4 +15,34 @@ Mode::set_current(
 );
 ```
 
+If you don't want to deal with splash screen during testing, you might be a bit fancier:
+```cpp
+	//near the top of main():
+
+	bool do_skip_intro = false;
+
+	for (int argi = 1; argi < argc; ++argi) {
+		std::string arg = argv[argi];
+		if (arg == "--skip-intro") {
+			do_skip_intro = true;
+		} else {
+			std::cerr << "WARNING: ignoring argument '" << arg << "'." << std::endl;
+		}
+	}
+
+	//...
+
+	//and, for mode creation:
+
+	{ //create mode:
+		auto intro = std::make_shared< GP26IntroMode >( [](){
+			Mode::set_current(std::make_shared< PlayMode >());
+		} );
+		if (do_skip_intro) {
+			intro->time = 10.0f; //force intro to end immediately
+		}
+		Mode::set_current( intro );
+	}
+```
+
 This intro was built with [NEST](NEST.md).
