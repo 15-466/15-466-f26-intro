@@ -212,7 +212,7 @@ GP26IntroMode::GP26IntroMode(std::function< void() > const &on_finished_) : on_f
 		};
 
 		[[maybe_unused]] ADSR env2{
-			.a = 1.5f,
+			.a = 2.0f,
 			.d = 0.1f,
 			.s = 1.0f,
 			.r = 1.5f,
@@ -232,17 +232,11 @@ GP26IntroMode::GP26IntroMode(std::function< void() > const &on_finished_) : on_f
 			.r = 0.0f,
 		};
 
-		tone(0.0f, 1.5f, midi2hz(Cs(1)), 0.2f, square, envR);
 
 		const float ofs = 0.7f;
 
-		tone(ofs + 0.0f, 5.0f, midi2hz(F(0)), 1.0f, bell, env0);
-		tone(ofs + 0.0f, 5.0f, midi2hz(Gs(3)), 1.0f, bell, env0);
-		//tone(0.0f, 5.0f, midi2hz(Gs(6)), 0.5f, bell, env0);
-
-		tone(ofs + 0.25f, 3.0f, midi2hz(Gs(4)), 0.5f, supersaw, env1);
-
-		tone(2.5f, 3.5f, midi2hz(Cs(4)), 0.5f, supersaw, env2);
+		tone(ofs + 1.0f, 3.5f, midi2hz(Cs(4)), 0.2f, supersaw, env2);
+		tone(ofs + 0.0f, 5.0f, midi2hz(Gs(3)), 0.7f, bell, env0);
 
 
 		{ //gently re-center output (remove dc):
@@ -265,34 +259,53 @@ GP26IntroMode::GP26IntroMode(std::function< void() > const &on_finished_) : on_f
 			float smoothed = 0.0f;
 			for (float &s : data) {
 				float wet = 1.0f * s + (
-					+ 6.0f * tap(0.43f)
+					+ 6.0f * tap(0.49f)
 					+ 6.0f * tap(0.21f)
 					+ 3.0f * tap(0.13f)
 					+ 1.0f * tap(0.09f)
 					) / 16.0f;
-				smoothed += 0.95f * (wet - smoothed); //smooth off high frequencies before writing reverb buffer
+				smoothed += 0.9f * (wet - smoothed); //smooth off high frequencies before writing reverb buffer
 				delay[head] = smoothed;
 				head = (head + 1) % delay.size();
-				s = 0.25f * tap(0.25f) + 1.0f * s;
+				s = 0.25f * tap(0.25f) + 0.6f * s;
 			}
 		}
 
-		{ //do a low-pass filter on output:
-			float C = 0.6f;
+		{ //do a low-pass filter on reverb output:
+			constexpr float FAC = 0.05f;
 			float smoothed = 0.0f;
 			for (float &s : data) {
-				smoothed += C * (s - smoothed);
+				smoothed += FAC * (s - smoothed);
 				s = smoothed;
 			}
 			smoothed = 0.0f;
 			for (float &s : data) {
-				smoothed += C * (s - smoothed);
+				smoothed += FAC * (s - smoothed);
+				s = smoothed;
+			}
+		}
+
+		//some tones get mixed without reverb
+		tone(ofs + 0.0f, 5.0f, midi2hz(F(0)), 0.7f, bell, env0);
+		tone(ofs + 0.0f, 5.0f, midi2hz(F(3)), 0.7f, bell, env0);
+		tone(0.0f, 1.5f, midi2hz(Cs(1)), 0.1f, square, envR);
+
+		{ //do a low-pass filter on mixed output:
+			constexpr float FAC = 0.6f;
+			float smoothed = 0.0f;
+			for (float &s : data) {
+				smoothed += FAC * (s - smoothed);
+				s = smoothed;
+			}
+			smoothed = 0.0f;
+			for (float &s : data) {
+				smoothed += FAC * (s - smoothed);
 				s = smoothed;
 			}
 		}
 
 		{ //fade out the last bit, just in case:
-			constexpr uint32_t fade = 2*48000;
+			constexpr uint32_t fade = 4*48000;
 			for (uint32_t i = 0; i < fade; ++i) {
 				float amt = (i + 0.5f) / float(fade);
 				data[data.size()-1-i] *= amt;
@@ -507,71 +520,71 @@ GP26IntroMode::GP26IntroMode(std::function< void() > const &on_finished_) : on_f
 		//the letters:
 
 		//G:
-		svg_M({50.15979,55});
-		svg_h({15});
-		svg_v({20});
-		svg_h({-25});
-		svg_c({-10,0,-15,-5,-15,-15});
-		svg_V({20});
-		svg_c({0,-10,5,-15,15,-15});
-		svg_l({30,0});
-		svg_c({10,0,15,5,15,15});
-		svg_v({10});
+		svg_M({50.15979f,55.0f});
+		svg_h({15.0f});
+		svg_v({20.0f});
+		svg_h({-25.0f});
+		svg_c({-10.0f,0.0f,-15.0f,-5.0f,-15.0f,-15.0f});
+		svg_V({20.0f});
+		svg_c({0.0f,-10.0f,5.0f,-15.0f,15.0f,-15.0f});
+		svg_l({30.0f,0.0f});
+		svg_c({10.0f,0.0f,15.0f,5.0f,15.0f,15.0f});
+		svg_v({10.0f});
 
 		//M:
-		svg_M({105.53391,45});
-		svg_h({35});
-		svg_c({10,0,15,-5,15,-15});
-		svg_V({20});
-		svg_c({0,-10,-5,-15,-15,-15});
-		svg_h({-35});
-		svg_v({40,35});
+		svg_M({105.53391f,45.0f});
+		svg_h({35.0f});
+		svg_c({10.0f,0.0f,15.0f,-5.0f,15.0f,-15.0f});
+		svg_V({20.0f});
+		svg_c({0.0f,-10.0f,-5.0f,-15.0f,-15.0f,-15.0f});
+		svg_h({-35.0f});
+		svg_v({40.0f,35.0f});
 
 		//2 (top part):
-		svg_M({170.10525,15});
-		svg_h({30});
-		svg_c({17.05638,0.150086,25,8.11247,25,25,0,11.62594,-9.38639,17.613383,-10.70379,18.668836});
-		svg_L({183.1705,83.830844});
+		svg_M({170.10525f,15.0f});
+		svg_h({30.0f});
+		svg_c({17.05638f,0.150086f,25.0f,8.11247f,25.0f,25.0f,0.0f,11.62594f,-9.38639f,17.613383f,-10.70379f,18.668836f});
+		svg_L({183.1705f,83.830844f});
 
 		//(bottom part):
-		svg_M({180.10525,85});
-		svg_h({50});
+		svg_M({180.10525f,85.0f});
+		svg_h({50.0f});
 
 		//6:
-		svg_M({270.47937,15});
-		svg_h({-25});
-		svg_v({20,50});
-		svg_h({25});
-		svg_c({10,0,15,-5,15,-15});
-		svg_V({50});
-		svg_c({0,-10,-5,-15,-15,-15});
-		svg_h({-25});
+		svg_M({270.47937f,15.0f});
+		svg_h({-25.0f});
+		svg_v({20.0f,50.0f});
+		svg_h({25.0f});
+		svg_c({10.0f,0.0f,15.0f,-5.0f,15.0f,-15.0f});
+		svg_V({50.0f});
+		svg_c({0.0f,-10.0f,-5.0f,-15.0f,-15.0f,-15.0f});
+		svg_h({-25.0f});
 
 		//lines:
 
-		svg_M({0,95});
-		svg_h({159.94547});
-		svg_v({10});
-		svg_H({310});
+		svg_M({0.0f,95.0f});
+		svg_h({159.94547f});
+		svg_v({10.0f});
+		svg_H({310.0f});
 
-		svg_M({20,115});
-		svg_h({119.94547});
-		svg_v({10});
-		svg_H({290});
+		svg_M({20.0f,115.0f});
+		svg_h({119.94547f});
+		svg_v({10.0f});
+		svg_H({290.0f});
 
-		svg_M({40,135});
-		svg_h({79.94546});
-		svg_v({10});
-		svg_H({270});
+		svg_M({40.0f,135.0f});
+		svg_h({79.94546f});
+		svg_v({10.0f});
+		svg_H({270.0f});
 
 		svg_M({60,155});
-		svg_h({40});
-		svg_v({10});
-		svg_h({150});
+		svg_h({40.0f});
+		svg_v({10.0f});
+		svg_h({150.0f});
 
-		svg_M({80,175});
-		svg_v({10});
-		svg_h({150});
+		svg_M({80.0f,175.0f});
+		svg_v({10.0f});
+		svg_h({150.0f});
 
 
 		assert(!paths.empty());
@@ -744,85 +757,84 @@ void GP26IntroMode::draw(glm::uvec2 const &drawable_size) {
 	//compute triangles to draw:
 	std::vector< Vertex > attribs;
 	
-	size_t bg_start = attribs.size();
-	//--- gradient background ---
-	{
-		glm::vec2 grad_start = glm::vec2(0.0f, 0.0f);
-		glm::vec2 grad_end = glm::vec2(0.0f, 100.0f);
-		[[maybe_unused]] uint32_t c0 = 0xff00ff;
-		[[maybe_unused]] uint32_t c1 = 0xff00ff;
+	//--- gradient drawing helpers ---
+	glm::vec2 grad_start = glm::vec2(0.0f, 0.0f);
+	glm::vec2 grad_end = glm::vec2(0.0f, 100.0f);
+	uint32_t c0 = 0xff00ff;
+	uint32_t c1 = 0xff00ff;
 
-		//split pts so that eqn.xy * pt + eqn.z >= 0.0f goes in 'pos', others go in 'neg':
-		// degenerate polygons just dropped
-		auto split = [](std::vector< glm::vec2 > const &pts, glm::vec3 eqn,
-			std::vector< glm::vec2 > *neg, std::vector< glm::vec2 > *pos) {
-			if (pts.size() < 3) return;
+	//split pts so that eqn.xy * pt + eqn.z >= 0.0f goes in 'pos', others go in 'neg':
+	// degenerate polygons just dropped
+	auto split = [](std::vector< glm::vec2 > const &pts, glm::vec3 eqn,
+		std::vector< glm::vec2 > *neg, std::vector< glm::vec2 > *pos) {
+		if (pts.size() < 3) return;
 
-			glm::vec2 prev = pts.back();
-			float prev_val = glm::dot(prev, glm::vec2(eqn)) + eqn.z;
+		glm::vec2 prev = pts.back();
+		float prev_val = glm::dot(prev, glm::vec2(eqn)) + eqn.z;
 
-			for (glm::vec2 const &next : pts) {
-				float next_val = glm::dot(next, glm::vec2(eqn)) + eqn.z;
-				if ((prev_val >= 0.0f) != (next_val >= 0.0f)) {
-					glm::vec2 mid = glm::mix(prev, next, (0.0f - prev_val) / (next_val - prev_val));
-					if (neg) neg->emplace_back(mid);
-					if (pos) pos->emplace_back(mid);
-				}
-				if (next_val >= 0.0f) {
-					if (pos) pos->emplace_back(next);
-				} else {
-					if (neg) neg->emplace_back(next);
-				}
-				prev = next;
-				prev_val = next_val;
+		for (glm::vec2 const &next : pts) {
+			float next_val = glm::dot(next, glm::vec2(eqn)) + eqn.z;
+			if ((prev_val >= 0.0f) != (next_val >= 0.0f)) {
+				glm::vec2 mid = glm::mix(prev, next, (0.0f - prev_val) / (next_val - prev_val));
+				if (neg) neg->emplace_back(mid);
+				if (pos) pos->emplace_back(mid);
+			}
+			if (next_val >= 0.0f) {
+				if (pos) pos->emplace_back(next);
+			} else {
+				if (neg) neg->emplace_back(next);
+			}
+			prev = next;
+			prev_val = next_val;
+		}
+	};
+	auto grad_poly = [&](std::vector< glm::vec2 > const &pts) {
+		if (pts.size() < 3) return;
+
+		glm::vec2 grad_along = grad_end - grad_start;
+		std::vector< glm::vec2 > const0, temp, med, const1;
+		split(pts, glm::vec3(grad_along, glm::dot(grad_along,-grad_start)), &const0, &temp);
+		split(temp, glm::vec3(grad_along, glm::dot(grad_along,-grad_end)), &med, &const1);
+
+		glm::vec3 amt_eqn = glm::vec3(grad_along, glm::dot(grad_along, -grad_start));
+		amt_eqn /= glm::dot(amt_eqn, glm::vec3(grad_end, 1.0f));
+
+		// https://entropymine.com/imageworsener/srgbformula/
+		auto srgb2linear = [](uint32_t v255) {
+			float v = float(v255) / 255.0f;
+			if (v <= 0.04045f) v /= 12.92f;
+			else v = std::pow((v + 0.055f) / 1.055f, 2.4f);
+			return v * 255.0f;
+		};
+
+		glm::vec4 color0( srgb2linear((c0 >> 24) & 0xff), srgb2linear((c0 >> 16) & 0xff), srgb2linear((c0 >> 8) & 0xff), c0 & 0xff );
+		glm::vec4 color1( srgb2linear((c1 >> 24) & 0xff), srgb2linear((c1 >> 16) & 0xff), srgb2linear((c1 >> 8) & 0xff), c1 & 0xff );
+
+		auto color = [&](glm::vec2 const &pt) {
+			float amt = glm::dot(amt_eqn, glm::vec3(pt, 1.0f));
+			glm::vec4 c = glm::mix(color0, color1, std::clamp(amt, 0.0f, 1.0f));
+			return glm::u8vec4(uint8_t(c.r), uint8_t(c.g), uint8_t(c.b), uint8_t(c.a));
+		};
+
+		auto poly = [&](std::vector< glm::vec2 > const &pts) {
+			if (!attribs.empty()) attribs.emplace_back(attribs.back());
+			for (size_t i = 0; 2 * i + 1 < pts.size(); i += 1) {
+				attribs.emplace_back(pts[i], color(pts[i]));
+				if (i == 0 && attribs.size() > 1) attribs.emplace_back(attribs.back());
+				attribs.emplace_back(pts[pts.size()-1-i], color(pts[pts.size()-1-i]));
+			}
+			if (pts.size() % 2 != 0) {
+				attribs.emplace_back(pts[pts.size()/2], color(pts[pts.size()/2]));
+				attribs.emplace_back(attribs.back());
 			}
 		};
-		auto grad_poly = [&](std::vector< glm::vec2 > const &pts) {
-			if (pts.size() < 3) return;
 
-			glm::vec2 grad_along = grad_end - grad_start;
-			std::vector< glm::vec2 > const0, temp, med, const1;
-			split(pts, glm::vec3(grad_along, glm::dot(grad_along,-grad_start)), &const0, &temp);
-			split(temp, glm::vec3(grad_along, glm::dot(grad_along,-grad_end)), &med, &const1);
+		poly(const0);
+		poly(med);
+		poly(const1);
+	};
 
-			glm::vec3 amt_eqn = glm::vec3(grad_along, glm::dot(grad_along, -grad_start));
-			amt_eqn /= glm::dot(amt_eqn, glm::vec3(grad_end, 1.0f));
-
-			// https://entropymine.com/imageworsener/srgbformula/
-			auto srgb2linear = [](float v255) {
-				float v = v255 / 255.0f;
-				if (v <= 0.04045f) v /= 12.92f;
-				else v = std::pow((v + 0.055f) / 1.055f, 2.4f);
-				return v * 255.0f;
-			};
-
-			glm::vec4 color0( srgb2linear((c0 >> 24) & 0xff), srgb2linear((c0 >> 16) & 0xff), srgb2linear((c0 >> 8) & 0xff), c0 & 0xff );
-			glm::vec4 color1( srgb2linear((c1 >> 24) & 0xff), srgb2linear((c1 >> 16) & 0xff), srgb2linear((c1 >> 8) & 0xff), c1 & 0xff );
-
-			auto color = [&](glm::vec2 const &pt) {
-				float amt = glm::dot(amt_eqn, glm::vec3(pt, 1.0f));
-				glm::vec4 c = glm::mix(color0, color1, std::clamp(amt, 0.0f, 1.0f));
-				return glm::u8vec4(uint8_t(c.r), uint8_t(c.g), uint8_t(c.b), uint8_t(c.a));
-			};
-
-			auto poly = [&](std::vector< glm::vec2 > const &pts) {
-				if (!attribs.empty()) attribs.emplace_back(attribs.back());
-				for (size_t i = 0; 2 * i + 1 < pts.size(); i += 1) {
-					attribs.emplace_back(pts[i], color(pts[i]));
-					if (i == 0 && attribs.size() > 1) attribs.emplace_back(attribs.back());
-					attribs.emplace_back(pts[pts.size()-1-i], color(pts[pts.size()-1-i]));
-				}
-				if (pts.size() % 2 != 0) {
-					attribs.emplace_back(pts[pts.size()/2], color(pts[pts.size()/2]));
-					attribs.emplace_back(attribs.back());
-				}
-			};
-
-			poly(const0);
-			poly(med);
-			poly(const1);
-		};
-
+	{ //--- gradient background ---
 		auto vibe = [](float t) {
 			return glm::vec2(
 				0.1f * std::cos(t / 0.3f * 2.0f * float(M_PI)) + 0.5f * std::cos(2.0f + t / 2.0f * 2.0f * float(M_PI)),
@@ -900,6 +912,29 @@ void GP26IntroMode::draw(glm::uvec2 const &drawable_size) {
 		}
 	}
 
+	//---- fade-out wipe ----
+	if (time > 9.0f) {
+		float wipe = std::clamp( (time - 9.0f) / 0.4f, 0.0f, 1.0f );
+		glm::vec2 pt = glm::vec2(screen_max.x, screen_min.y);
+		glm::vec2 dir = glm::vec2(0.5f * (screen_min.x + screen_max.x), screen_max.y) - pt;
+		dir = glm::normalize(dir);
+
+		float min = glm::dot(dir, glm::vec2(screen_max.x, screen_min.y) - pt);
+		float max = glm::dot(dir, glm::vec2(screen_min.x, screen_max.y) - pt);
+
+		grad_start = pt + dir * (glm::mix(min, max + 80.0f, wipe) );
+		grad_end = pt + dir * (glm::mix(min, max + 80.0f, wipe) - 80.0f);
+		c0 = 0x00000000;
+		c1 = 0x000000ff;
+
+		grad_poly({
+			glm::vec2(screen_min.x, screen_min.y),
+			glm::vec2(screen_max.x, screen_min.y),
+			glm::vec2(screen_max.x, screen_max.y),
+			glm::vec2(screen_min.x, screen_max.y),
+		});
+	}
+
 	/* show target, for debug
 	for (std::vector< glm::vec2 > const &path : letters) {
 		std::vector< float > param;
@@ -928,9 +963,6 @@ void GP26IntroMode::draw(glm::uvec2 const &drawable_size) {
 		);
 	}
 
-
-	size_t bg_end = attribs.size();
-
 	//----- actually draw ----
 	// (Based on DrawLines.cpp)
 
@@ -952,10 +984,12 @@ void GP26IntroMode::draw(glm::uvec2 const &drawable_size) {
 	glUniformMatrix4fv(color.CLIP_FROM_OBJECT_mat4, 1, GL_FALSE, glm::value_ptr(clip_from_object));
 
 	glBindVertexArray(vertex_buffer_for_color_program);
-	glDrawArrays(GL_TRIANGLE_STRIP, GLint(bg_start), GLsizei(bg_end - bg_start));
+	glDrawArrays(GL_TRIANGLE_STRIP, GLint(0), GLsizei(attribs.size()));
 	glBindVertexArray(0);
 
 	glUseProgram(0);
+
+	glDisable(GL_BLEND);
 
 	GL_ERRORS();
 }
